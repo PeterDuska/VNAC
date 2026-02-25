@@ -18,3 +18,15 @@ app:
       base-uri: http://localhost:1080
       username: dummy
       password: dummy
+management:
+  endpoint:
+    health:
+      show-details: always
+  endpoints:
+    web:
+      exposure:
+        include: health, info
+  info:
+    java:
+      enabled: true
+
