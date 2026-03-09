@@ -1,0 +1,64 @@
+version: '3.4'
+
+services:
+  postgres:
+    image: postgres:latest
+    environment:
+      POSTGRES_DB: cloud
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg1_data:/var/lib/postgresql/data
+    networks:
+      - appnet
+#  postgres2:
+#    build:
+#      context: docker/postgresql
+#    environment:
+#      POSTGRES_DB: cloud
+#      POSTGRES_USER: user
+#      POSTGRES_PASSWORD: password
+#    ports:
+#      - "5433:5432"
+#    volumes:
+#      - pg2_data:/var/lib/postgresql/data
+#    networks:
+#      - appnet
+  java-build:
+    image: maven:3.9.6-eclipse-temurin-21-jammy
+    working_dir: /app
+    volumes:
+      - ./:/app
+    command: mvn clean package -DskipTests
+    networks:
+      - appnet
+
+  java:
+    build:
+      context: .
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+    environment:
+      - SPRING_PROFILES_ACTIVE=postgres
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres1:5432/cloud
+    networks:
+      - appnet
+
+#  postgres2:
+  ## SEM PRÍDE ZADANIE 4
+
+#  postgres1:
+  ## SEM PRÍDE ZADANIE 2 + 3
+
+#networks:
+## SEM PRÍDE DEFINÍCIA NETWORKu (zo zadania 5)
+volumes:
+  pg1_data:
+  pg2_data:
+
+networks:
+  appnet:
