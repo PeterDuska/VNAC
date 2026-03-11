@@ -1,10 +1,6 @@
-CREATE USER cvicenie_docker WITH PASSWORD 'cvicenie_docker';
-
-CREATE DATABASE cvicenie_docker WITH ENCODING 'UTF8';
-
-GRANT ALL PRIVILEGES ON DATABASE cvicenie_docker to cvicenie_docker;
-
-\connect cvicenie_docker;
+-- The 'postgres' image automatically creates the user and database
+-- from the environment variables in docker-compose.yml.
+-- This script is run inside the 'cvicenie_docker' database.
 create extension if not exists pg_trgm;
 create extension if not exists unaccent;
 
@@ -22,7 +18,11 @@ $func$
 select lower( public.f_unaccent ($1) )
            $func$  language sql immutable;
 
-CREATE SCHEMA cvicenie_docker AUTHORIZATION cvicenie_docker;
+CREATE SCHEMA IF NOT EXISTS cvicenie_docker AUTHORIZATION cvicenie_docker;
+
+GRANT USAGE, CREATE ON SCHEMA cvicenie_docker TO cvicenie_docker;
+ALTER DEFAULT PRIVILEGES IN SCHEMA cvicenie_docker
+  GRANT ALL PRIVILEGES ON TABLES TO cvicenie_docker;
 
 -- cvicenie_docker."transaction" definition
 
@@ -30,7 +30,7 @@ CREATE SCHEMA cvicenie_docker AUTHORIZATION cvicenie_docker;
 
 -- DROP TABLE cvicenie_docker."transaction";
 
-CREATE TABLE cvicenie_docker."transaction" (
+CREATE TABLE IF NOT EXISTS cvicenie_docker."transaction" (
                                                transaction_id varchar(255) NOT NULL,
                                                amount numeric(38, 2) NOT NULL,
                                                currency varchar(255) NOT NULL,
@@ -53,6 +53,11 @@ CREATE TABLE cvicenie_docker."transaction" (
                                                target_account_name varchar(255) NULL,
                                                CONSTRAINT transaction_pkey PRIMARY KEY (transaction_id)
 );
+
+ALTER TABLE cvicenie_docker."transaction" OWNER TO cvicenie_docker;
+
+-- Grant permissions to the application user
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA cvicenie_docker TO cvicenie_docker;
 
 insert into cvicenie_docker."transaction" (transaction_id, amount, currency, description, effective_date, constant_symbol, payer_reference, specific_symbol, variable_symbol, sender_account_balance_value, sender_account_balance_currency, sender_account_bic, sender_account_iban, sender_account_name, status, target_account_balance_value, target_account_balance_currency, target_account_bic, target_account_iban, target_account_name) values ('5ae57f2a-5296-4643-876b-da3d5532feb2', 42, 'EUR', 'Anvil', '2022-09-24', null, null, null, '123456', 958, 'EUR', null, 'SK8975000000000012345671', null, 'PROCESSED', null, null, 'DEUTDEFFXXX', 'DE89370400440532013000', 'Acme corp.');
 insert into cvicenie_docker."transaction" (transaction_id, amount, currency, description, effective_date, constant_symbol, payer_reference, specific_symbol, variable_symbol, sender_account_balance_value, sender_account_balance_currency, sender_account_bic, sender_account_iban, sender_account_name, status, target_account_balance_value, target_account_balance_currency, target_account_bic, target_account_iban, target_account_name) values ('6fdd23ca-abd3-40e7-8e3d-ecec2ec80036', 12, 'EUR', 'Cashback', '2022-09-25', null, null, null, null, null, null, 'DEUTDEFFXXX', 'DE89370400440532013000', 'Acme corp.', 'PROCESSED', 970, 'EUR', null, 'SK8975000000000012345671', null);
