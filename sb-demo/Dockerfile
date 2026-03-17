@@ -3,7 +3,7 @@ WORKDIR /app
 COPY pom.xml .
 COPY src ./src
 # Skip the git-commit-id plugin as the .git directory is not available in the container
-RUN mvn clean package -DskipTests -Dgit-commit-id.skip=true
+RUN mvn clean install -Dmaven.test.skip=true -Dmaven.gitcommitid.skip=true
 
 FROM eclipse-temurin:21-jdk
 COPY --from=build /app/target/*.jar /app.jar

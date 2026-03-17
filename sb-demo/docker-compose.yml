@@ -1,15 +1,12 @@
-# This file is compatible with docker-compose and podman-compose
-version: '3.8'
-
 services:
   postgres1:
     image: postgres:15
-    environment:
-      POSTGRES_DB: cloud
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
     ports:
       - "5432:5432"
+    environment:
+      - POSTGRES_DB=cloud
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
     volumes:
       - pg1_data:/var/lib/postgresql/data
     networks:
@@ -18,12 +15,12 @@ services:
   postgres2:
     build:
       context: docker/postgresql
-    environment:
-      POSTGRES_DB: cvicenie_docker
-      POSTGRES_USER: cvicenie_docker
-      POSTGRES_PASSWORD: cvicenie_docker
     ports:
       - "5433:5432"
+    environment:
+      - POSTGRES_DB=cloud
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
     volumes:
       - pg2_data:/var/lib/postgresql/data
     networks:
@@ -35,14 +32,19 @@ services:
     ports:
       - "8080:8080"
     environment:
-#      - SPRING_PROFILES_ACTIVE=postgres, mock
-#      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres1:5432/cloud
-      - SPRING_PROFILES_ACTIVE=postgres2, mock
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres2:5432/cvicenie_docker
+      - SPRING_PROFILES_ACTIVE=postgres2
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres2:5432/cvicenie_docker?currentSchema=cvicenie_docker
       - SPRING_DATASOURCE_USERNAME=cvicenie_docker
       - SPRING_DATASOURCE_PASSWORD=cvicenie_docker
+    depends_on:
+      - postgres2
     networks:
       - appnet
+
+  java-build:
+    build:
+      context: .
+      target: build
 
 volumes:
   pg1_data:
