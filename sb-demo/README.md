@@ -9,6 +9,10 @@ Prerequisites:
 - Docker Desktop is installed and running
 - Kubernetes is enabled in Docker Desktop
 - `kubectl` is using the `docker-desktop` context
+- postgres:15 
+```powershell
+docker pull postgres:15
+```
 
 Check the context:
 
