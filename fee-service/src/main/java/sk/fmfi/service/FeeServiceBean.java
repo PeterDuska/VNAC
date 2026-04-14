@@ -68,7 +68,7 @@ public class FeeServiceBean implements FeeService {
     // Pridajte anotáciu @Transactional bez podpory transakcií
     @Transactional(Transactional.TxType.NOT_SUPPORTED)
     public List<Fee> getFeesForIban(String iban) {
-        log.info("Retrieving all fees");
+        log.info("Retrieving fees for iban=" + iban);
         return feeRepository.listForIban(iban);
         // pridajte logovaciu hlasku typu info s informaciou o vstupnom iban
         // pomocou feeRepository vráťte tie záznamy entity Fee, ktoré sa viažu na zadaný IBAN
