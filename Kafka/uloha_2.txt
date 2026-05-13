@@ -1,0 +1,75 @@
+CREATE TABLE accounts (
+  iban VARCHAR,
+  name VARCHAR,
+  email VARCHAR
+) WITH (
+    'connector' = 'kafka',
+    'topic' = 'accounts',
+    'properties.bootstrap.servers' = 'broker:9092',
+    'properties.group.id' = 'accounts-reader',
+    'scan.startup.mode' = 'earliest-offset',
+    'key.format' = 'raw',
+    'key.fields' = 'iban',
+    'value.format' = 'avro-confluent',
+    'value.avro-confluent.url' = 'http://schema-registry:8081',
+    'value.fields-include' = 'ALL'
+);
+
+
+
+INSERT INTO accounts (iban, name, email)
+VALUES 
+  ('SK3111000000002923456789', 'John Doe', 'johndoe@example.com'),
+  ('FR7618206000572476985163', 'Bob Smith', 'bobsmith@example.com'),
+  ('DE6508000000192000145399', 'Alice Brown', 'alicebrown@example.com'),
+  ('NL02ABNA0457893456', 'Charlie Green', 'charliegreen@example.com');
+
+
+
+CREATE TABLE transaction_notifications (
+  id INT,
+  iban VARCHAR,
+  email VARCHAR,
+  name VARCHAR,
+  amount DOUBLE
+) WITH (
+  'connector' = 'kafka',
+  'topic' = 'transaction_notifications',
+  'properties.bootstrap.servers' = 'broker:9092',
+  'properties.group.id' = 'transaction-notifications-reader',
+  'scan.startup.mode' = 'earliest-offset',
+  'key.format' = 'raw',
+  'key.fields' = 'id',
+  'value.format' = 'avro-confluent',
+  'value.avro-confluent.url' = 'http://schema-registry:8081',
+  'value.fields-include' = 'EXCEPT_KEY'
+);
+
+
+INSERT INTO transaction_notifications
+SELECT
+  t.id,
+  t.iban,
+  a.email,
+  a.name,
+  t.amount
+FROM transactions AS t
+JOIN accounts AS a
+ON t.iban = a.iban
+WHERE ABS(t.amount) > 100;
+
+SELECT * FROM transaction_notifications;
+
+OUTPUT: 
++----+-------------+--------------------------------+--------------------------------+--------------------------------+--------------------------------+
+| op |          id |                           iban |                          email |                           name |                         amount |
++----+-------------+--------------------------------+--------------------------------+--------------------------------+--------------------------------+
+| +I |           2 |       SK3111000000002923456789 |            johndoe@example.com |                       John Doe |                         -800.0 |
+| +I |           3 |       FR7618206000572476985163 |           bobsmith@example.com |                      Bob Smith |                         2000.0 |
+| +I |           5 |       SK3111000000002923456789 |            johndoe@example.com |                       John Doe |                         -120.0 |
+| +I |           8 |       SK3111000000002923456789 |            johndoe@example.com |                       John Doe |                         -300.0 |
+| +I |          11 |       SK3111000000002923456789 |            johndoe@example.com |                       John Doe |                         -300.0 |
+| +I |          13 |       DE6508000000192000145399 |         alicebrown@example.com |                    Alice Brown |                         -260.0 |
+| +I |          14 |       DE6508000000192000145399 |         alicebrown@example.com |                    Alice Brown |                         -300.0 |
+| +I |          18 |       SK3111000000002923456789 |            johndoe@example.com |                       John Doe |                         -300.0 |
+| +I |          19 |       SK3111000000002923456789 |            johndoe@example.com |                       John Doe |                         -200.0 |

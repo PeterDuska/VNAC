@@ -1,0 +1,49 @@
+CREATE TABLE repeated_transaction_alerts (
+  account_iban VARCHAR,
+  amount DOUBLE,
+  first_execution_date TIMESTAMP(3),
+  second_execution_date TIMESTAMP(3)
+) WITH (
+  'connector' = 'kafka',
+  'topic' = 'repeated_transaction_alerts',
+  'properties.bootstrap.servers' = 'broker:9092',
+  'properties.group.id' = 'repeated-transaction-alerts-reader',
+  'scan.startup.mode' = 'earliest-offset',
+  'value.format' = 'avro-confluent',
+  'value.avro-confluent.url' = 'http://schema-registry:8081'
+);
+
+
+INSERT INTO repeated_transaction_alerts
+SELECT
+  account_iban,
+  repeated_amount,
+  first_execution_date,
+  second_execution_date
+FROM transactions
+MATCH_RECOGNIZE (
+  PARTITION BY iban
+  ORDER BY eventTime
+  MEASURES
+    A.iban AS account_iban,
+    A.amount AS repeated_amount,
+    A.eventTime AS first_execution_date,
+    B.eventTime AS second_execution_date
+  ONE ROW PER MATCH
+  AFTER MATCH SKIP TO NEXT ROW
+  PATTERN (A B)
+  DEFINE
+    A AS A.amount < 0,
+    B AS B.amount < 0 AND B.amount = A.amount
+);
+
+
+SELECT * FROM repeated_transaction_alerts;
+
+OUTPUT:
++----+--------------------------------+--------------------------------+-------------------------+-------------------------+
+| op |                   account_iban |                         amount |    first_execution_date |   second_execution_date |
++----+--------------------------------+--------------------------------+-------------------------+-------------------------+
+| +I |       SK3111000000002923456789 |                         -300.0 | 2026-04-08 16:00:00.000 | 2026-04-11 19:00:00.000 |
+| +I |       SK3111000000002923456789 |                         -300.0 | 2026-04-11 19:00:00.000 | 2026-04-16 09:00:00.000 |
+| +I |       FR7618206000572476985163 |                          -15.0 | 2026-04-15 10:00:00.000 | 2026-04-15 18:00:00.000 |

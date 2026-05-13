@@ -1,0 +1,51 @@
+INSERT INTO transactions (id, description, amount, iban, counterpartyIban, executionDate, currency) VALUES
+  (11, 'Payment for phone bill', -300.00, 'SK3111000000002923456789', 'AT022050302101023600', '2026-04-11 19:00:00', 'EUR'),
+  (12, 'Payment for haircut', -20.00, 'DE6508000000192000145399', 'DK5000400440116243', '2026-04-13 22:00:00', 'EUR'),
+  (13, 'Payment for groceries', -260.00, 'DE6508000000192000145399', 'GB29NWBK60161331926819', '2026-04-13 23:00:00', 'EUR'),
+  (14, 'Payment for gas', -300.00, 'DE6508000000192000145399', 'PT50000201231234567890154', '2026-04-14 01:00:00', 'EUR'),
+  (15, 'Payment for coffee', -5.00, 'DE6508000000192000145399', 'BE71096123456769', '2026-04-14 02:00:00', 'EUR'),
+  (16, 'Payment for books', -15.00, 'FR7618206000572476985163', 'IS140159260076545510730339', '2026-04-15 10:00:00', 'EUR'),
+  (17, 'Magazine subscription', -15.00, 'FR7618206000572476985163', 'NO9386011117947', '2026-04-15 18:00:00', 'EUR'),
+  (18, 'Payment for car repair', -300.00, 'SK3111000000002923456789', 'PL61109010140000071219812874', '2026-04-16 09:00:00', 'EUR'),
+  (19, 'Payment for groceries', -200.00, 'SK3111000000002923456789', 'GB29NWBK60161331926819', '2026-04-16 10:00:00', 'EUR'),
+  (20, 'Refund from merchant', 100.00, 'SK3111000000002923456789', 'PL61109010140000071219812874', '2026-04-16 11:00:00', 'EUR'),
+  (21, 'Payment for coffee', -3.50, 'SK3111000000002923456789', 'BE71096123456769', '2026-04-17 08:00:00', 'EUR');
+
+
+
+CREATE TABLE daily_outgoing_limit_alerts (
+  iban VARCHAR,
+  total_outgoing DOUBLE,
+  alert_day DATE
+) WITH (
+  'connector' = 'kafka',
+  'topic' = 'daily_outgoing_limit_alerts',
+  'properties.bootstrap.servers' = 'broker:9092',
+  'properties.group.id' = 'daily-outgoing-limit-reader',
+  'scan.startup.mode' = 'earliest-offset',
+  'value.format' = 'avro-confluent',
+  'value.avro-confluent.url' = 'http://schema-registry:8081'
+);
+
+
+INSERT INTO daily_outgoing_limit_alerts
+SELECT
+  iban,
+  SUM(ABS(amount)) AS total_outgoing,
+  CAST(window_start AS DATE) AS alert_day
+FROM TABLE(
+  TUMBLE(TABLE transactions, DESCRIPTOR(eventTime), INTERVAL '1' DAY)
+)
+WHERE amount < 0
+GROUP BY iban, window_start, window_end
+HAVING SUM(ABS(amount)) > 400;
+
+
+SELECT * FROM daily_outgoing_limit_alerts;
+
+OUTPUT:
++----+--------------------------------+--------------------------------+------------+
+| op |                           iban |                 total_outgoing |  alert_day |
++----+--------------------------------+--------------------------------+------------+
+| +I |       SK3111000000002923456789 |                          800.0 | 2026-04-02 |
+| +I |       SK3111000000002923456789 |                          500.0 | 2026-04-16 |

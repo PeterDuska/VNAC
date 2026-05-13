@@ -1,0 +1,129 @@
+
+CREATE TABLE transactions (
+  id INT,
+  description VARCHAR,
+  amount DOUBLE,
+  iban VARCHAR,
+  counterpartyIban VARCHAR,
+  executionDate VARCHAR,
+  currency VARCHAR,
+  eventTime AS TO_TIMESTAMP(executionDate),
+  WATERMARK FOR eventTime AS eventTime
+) WITH (
+    'connector' = 'kafka',
+    'topic' = 'transactions',
+    'properties.bootstrap.servers' = 'broker:9092',
+    'scan.startup.mode' = 'earliest-offset',
+    'key.format' = 'raw',
+    'key.fields' = 'id',
+    'value.format' = 'avro-confluent',
+    'value.avro-confluent.url' = 'http://schema-registry:8081',
+    'value.fields-include' = 'EXCEPT_KEY'
+);
+
+
+INSERT INTO transactions (id, description, amount, iban, counterpartyIban, executionDate, currency) VALUES
+  (1, 'Payment for groceries', -55.20, 'SK3111000000002923456789', 'GB29NWBK60161331926819', '2026-04-01 09:00:00', 'EUR'),
+  (2, 'Payment for rent', -800.00, 'SK3111000000002923456789', 'IT60X0542811101000000123456', '2026-04-02 10:00:00', 'EUR'),
+  (3, 'Salary', 2000.00, 'FR7618206000572476985163', 'CH9300762011623852957', '2026-04-03 11:00:00', 'EUR'),
+  (4, 'Payment for internet', -40.00, 'DE6508000000192000145399', 'ES9121000418450200051332', '2026-04-04 12:00:00', 'EUR'),
+  (5, 'Payment for utilities', -120.00, 'SK3111000000002923456789', 'AT611904300234573201', '2026-04-05 13:00:00', 'EUR'),
+  (6, 'Payment for restaurant', -35.00, 'NL02ABNA0457893456', 'BE68539007547034', '2026-04-06 14:00:00', 'EUR'),
+  (7, 'Payment for gas', -50.00, 'DE6508000000192000145399', 'PT50000201231234567890154', '2026-04-07 15:00:00', 'EUR'),
+  (8, 'Payment for car insurance', -300.00, 'SK3111000000002923456789', 'CY17002001280000001200527600', '2026-04-08 16:00:00', 'EUR'),
+  (9, 'Payment for cinema', -10.00, 'FR7618206000572476985163', 'GB82WEST12345698765432', '2026-04-09 17:00:00', 'EUR'),
+  (10, 'Payment for groceries', -70.00, 'DE6508000000192000145399', 'GB29NWBK60161331926819', '2026-04-10 18:00:00', 'EUR');
+
+
+
+CREATE TABLE transaction_fees (
+  id INT,
+  amount DOUBLE,
+  fee DOUBLE
+) WITH (
+  'connector' = 'kafka',
+  'topic' = 'transaction_fees',
+  'properties.bootstrap.servers' = 'broker:9092',
+  'properties.group.id' = 'transaction-fees-reader',
+  'scan.startup.mode' = 'earliest-offset',
+  'key.format' = 'raw',
+  'key.fields' = 'id',
+  'value.format' = 'avro-confluent',
+  'value.avro-confluent.url' = 'http://schema-registry:8081',
+  'value.fields-include' = 'EXCEPT_KEY'
+);
+
+
+INSERT INTO transaction_fees
+SELECT
+  id,
+  amount,
+  ROUND(ABS(amount) * 0.01, 2) AS fee
+FROM transactions
+WHERE amount < 0;
+
+
+SELECT * FROM transaction_fees;
+
+
+OUTPUT:
++----+-------------+--------------------------------+--------------------------------+
+| op |          id |                         amount |                            fee |
++----+-------------+--------------------------------+--------------------------------+
+| +I |           1 |                          -55.2 |                           0.55 |
+| +I |           2 |                         -800.0 |                            8.0 |
+| +I |           4 |                          -40.0 |                            0.4 |
+| +I |           5 |                         -120.0 |                            1.2 |
+| +I |           6 |                          -35.0 |                           0.35 |
+| +I |           7 |                          -50.0 |                            0.5 |
+| +I |           8 |                         -300.0 |                            3.0 |
+| +I |           9 |                          -10.0 |                            0.1 |
+| +I |          10 |                          -70.0 |                            0.7 |
+| +I |           1 |                          -55.2 |                           0.55 |
+| +I |           2 |                         -800.0 |                            8.0 |
+| +I |           4 |                          -40.0 |                            0.4 |
+| +I |           5 |                         -120.0 |                            1.2 |
+| +I |           6 |                          -35.0 |                           0.35 |
+| +I |           7 |                          -50.0 |                            0.5 |
+| +I |           8 |                         -300.0 |                            3.0 |
+| +I |           9 |                          -10.0 |                            0.1 |
+| +I |          10 |                          -70.0 |                            0.7 |
+| +I |           1 |                          -55.2 |                           0.55 |
+| +I |           2 |                         -800.0 |                            8.0 |
+| +I |           4 |                          -40.0 |                            0.4 |
+| +I |           5 |                         -120.0 |                            1.2 |
+| +I |           6 |                          -35.0 |                           0.35 |
+| +I |           7 |                          -50.0 |                            0.5 |
+| +I |           8 |                         -300.0 |                            3.0 |
+| +I |           9 |                          -10.0 |                            0.1 |
+| +I |          10 |                          -70.0 |                            0.7 |
+| +I |          11 |                         -300.0 |                            3.0 |
+| +I |          12 |                          -20.0 |                            0.2 |
+| +I |          11 |                         -300.0 |                            3.0 |
+| +I |          13 |                         -260.0 |                            2.6 |
+| +I |          14 |                         -300.0 |                            3.0 |
+| +I |          15 |                           -5.0 |                           0.05 |
+| +I |          12 |                          -20.0 |                            0.2 |
+| +I |          16 |                          -15.0 |                           0.15 |
+| +I |          13 |                         -260.0 |                            2.6 |
+| +I |          17 |                          -15.0 |                           0.15 |
+| +I |          18 |                         -300.0 |                            3.0 |
+| +I |          14 |                         -300.0 |                            3.0 |
+| +I |          11 |                         -300.0 |                            3.0 |
+| +I |          12 |                          -20.0 |                            0.2 |
+| +I |          13 |                         -260.0 |                            2.6 |
+| +I |          14 |                         -300.0 |                            3.0 |
+| +I |          15 |                           -5.0 |                           0.05 |
+| +I |          16 |                          -15.0 |                           0.15 |
+| +I |          17 |                          -15.0 |                           0.15 |
+| +I |          18 |                         -300.0 |                            3.0 |
+| +I |          19 |                         -200.0 |                            2.0 |
+| +I |          19 |                         -200.0 |                            2.0 |
+| +I |          21 |                           -3.5 |                           0.04 |
+| +I |          15 |                           -5.0 |                           0.05 |
+| +I |          16 |                          -15.0 |                           0.15 |
+| +I |          17 |                          -15.0 |                           0.15 |
+| +I |          21 |                           -3.5 |                           0.04 |
+| +I |          18 |                         -300.0 |                            3.0 |
+| +I |          19 |                         -200.0 |                            2.0 |
+| +I |          21 |                           -3.5 |                           0.04 |

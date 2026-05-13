@@ -1,0 +1,38 @@
+CREATE TABLE transaction_count_alerts (
+  iban VARCHAR,
+  window_start TIMESTAMP(3),
+  window_end TIMESTAMP(3),
+  transaction_count BIGINT,
+  PRIMARY KEY (iban, window_start, window_end) NOT ENFORCED
+) WITH (
+  'connector' = 'upsert-kafka',
+  'topic' = 'transaction_count_alerts',
+  'properties.bootstrap.servers' = 'broker:9092',
+  'properties.group.id' = 'transaction-count-alerts-reader',
+  'key.format' = 'json',
+  'value.format' = 'avro-confluent',
+  'value.avro-confluent.url' = 'http://schema-registry:8081'
+);
+
+
+
+INSERT INTO transaction_count_alerts
+SELECT
+  iban,
+  window_start,
+  window_end,
+  COUNT(*) AS transaction_count
+FROM TABLE(
+  HOP(TABLE transactions, DESCRIPTOR(eventTime), INTERVAL '1' HOUR, INTERVAL '5' HOURS)
+)
+GROUP BY iban, window_start, window_end
+HAVING COUNT(*) > 3;
+
+
+SELECT * FROM transaction_count_alerts;
+
+OUTPUT:
++----+--------------------------------+-------------------------+-------------------------+----------------------+
+| op |                           iban |            window_start |              window_end |    transaction_count |
++----+--------------------------------+-------------------------+-------------------------+----------------------+
+| +I |       DE6508000000192000145399 | 2026-04-13 22:00:00.000 | 2026-04-14 03:00:00.000 |                    4 |
